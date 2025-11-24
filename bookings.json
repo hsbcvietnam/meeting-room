@@ -1,0 +1,17 @@
+{
+  "lastId": 1,
+  "bookings": [
+    {
+      "id": 1,
+      "roomId": 2,
+      "roomName": "Border Collie",
+      "date": "2025-11-24",
+      "startTime": "09:00",
+      "endTime": "10:00",
+      "meetingType": "Internal",
+      "jobName": "a",
+      "booker": "b",
+      "peopleCount": null
+    }
+  ]
+}

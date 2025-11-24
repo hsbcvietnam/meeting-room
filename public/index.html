@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meeting Room Booking 🐾</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Hunters' Meeting Rooms 🐶</h1>
+    </header>
+
+    <section class="controls">
+      <button id="newBookingBtn">+ New Booking</button>
+
+      <div class="control-group">
+        <label for="datePicker">Week starting from</label>
+        <input type="date" id="datePicker" />
+        <small class="hint">Chọn ngày bất kỳ trong tuần bạn muốn xem</small>
+      </div>
+    </section>
+
+    <section class="room-tabs-section">
+      <div class="room-tabs" id="roomTabs">
+        <!-- Tabs rendered by JS -->
+      </div>
+      <p class="week-label" id="weekLabel"></p>
+    </section>
+
+    <section class="calendar-section">
+      <div class="calendar-legend">
+        <h2>Lịch họp theo tuần</h2>
+      </div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </section>
+
+    <section class="house-rules">
+      <h2>House Rules</h2>
+      <ul>
+        <li>Ghi đúng tên Hunter sử dụng, không dùng nickname hay viết tắt</li>
+        <li>Không book thì không được sử dụng phòng</li>
+        <li>Xếp gọn vật dụng về chỗ cũ sau khi sử dụng</li>
+        <li>Dọn giấy rác, ly trà sữa, cafe, sinh tố trước khi rời phòng</li>
+        <li>Tắt đèn khi họp xong, để máy lạnh cho team sau nếu còn cuộc họp</li>
+        <li>Nếu là cuộc họp cuối ngày ⇒ <strong>TẮT MÁY LẠNH &amp; KHÓA CỬA</strong></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- Booking form modal -->
+  <div id="bookingModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">New Booking</h2>
+        <button id="closeModalBtn" class="close-btn" aria-label="Close">
+          <span>&times;</span>
+        </button>
+      </div>
+
+      <form id="bookingForm">
+        <div class="form-row">
+          <label for="roomSelect">Room</label>
+          <select id="roomSelect" name="roomId" required></select>
+          <small class="hint">
+            Labrador, Border Collie, Rottweiler: có TV<br />
+            Shiba &amp; Poodle: phòng nhỏ xinh, offline 🐾
+          </small>
+        </div>
+
+        <div class="form-row two-cols">
+          <div>
+            <label for="meetingType">Meeting type</label>
+            <select id="meetingType" name="meetingType" required>
+              <option value="Internal">Internal</option>
+              <option value="External">External</option>
+            </select>
+          </div>
+          <div class="people-inline">
+  <label for="peopleCount">Number of people</label>
+  <input id="peopleCount" name="peopleCount" type="text" placeholder="4" />
+</div>
+        </div>
+
+        <div class="form-row">
+          <label for="jobName">Job / Project name</label>
+          <input
+            type="text"
+            id="jobName"
+            name="jobName"
+            placeholder="e.g. Lifebuoy Jarvis review"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+  <label for="booker">Người book</label>
+  <input
+    id="booker"
+    name="booker"
+    type="text"
+    placeholder="Tên, no nicknames"
+  />
+</div>
+
+        <div class="form-row">
+          <label for="bookingDate">Date</label>
+          <input type="date" id="bookingDate" name="date" required />
+        </div>
+
+        <div class="form-row two-cols">
+          <div>
+            <label for="startTime">Start time (24h)</label>
+            <input
+              type="text"
+              id="startTime"
+              name="startTime"
+              placeholder="09:00"
+              required
+            />
+          </div>
+          <div>
+            <label for="endTime">End time (24h)</label>
+            <input
+              type="text"
+              id="endTime"
+              name="endTime"
+              placeholder="10:15"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="deleteBtn" class="danger hidden">
+            Release booking
+          </button>
+          <button type="button" id="cancelBtn" class="secondary">Cancel</button>
+          <button type="submit" class="primary">Save booking</button>
+        </div>
+
+        <p id="formError" class="error-msg"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+  <script type="module" src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script> -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
