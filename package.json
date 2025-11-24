@@ -1,9 +1,14 @@
 {
   "name": "meeting-room-app",
   "version": "1.0.0",
+  "description": "Meeting room booking server",
   "main": "server.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
