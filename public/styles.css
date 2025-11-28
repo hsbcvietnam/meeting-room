@@ -137,6 +137,93 @@ button {
   margin-bottom: 16px;
 }
 
+/* Highlight current day */
+/* Soft today highlight – Apple-style */
+.day-column.today {
+  background-color: rgba(255, 215, 0, 0.08) !important; /* very soft golden tint */
+  backdrop-filter: saturate(150%) brightness(105%);
+}
+
+/* Today header highlight – Apple Calendar style */
+.calendar-header-cell.today {
+  background-color: transparent;
+  position: relative;
+}
+
+.calendar-header-cell.today .header-date {
+  color: white;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Room‑specific header date bubble colors */
+body[data-room="labrador"] .calendar-header-cell.today .header-date {
+  background: #f59e0b;
+}
+
+body[data-room="border-collie"] .calendar-header-cell.today .header-date {
+  background: #3b82f6;
+}
+
+body[data-room="rottweiler"] .calendar-header-cell.today .header-date {
+  background: #ef4444;
+}
+
+body[data-room="shiba"] .calendar-header-cell.today .header-date {
+  background: #ec4899;
+}
+
+body[data-room="poodle"] .calendar-header-cell.today .header-date {
+  background: #8b5cf6;
+}
+
+#now-line {
+  position: absolute;
+  left: 80px;
+  right: 0;
+  height: 1px;
+  background-color: rgba(255, 59, 48, 0.35); /* soft red, semi-transparent */
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+}
+
+#now-line::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  background-color: rgba(255, 59, 48, 0.9); /* more solid red dot */
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(255, 59, 48, 0.4); /* soft glow */
+}
+
+#now-label {
+  position: absolute;
+  left: 36px;
+  transform: translateY(-50%);
+  padding: 2px 10px 2px 8px;
+  background: rgba(255, 107, 84, 0.15); /* soft coral tint */
+  color: #ff6b54;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 14px;
+  z-index: 999;
+  pointer-events: none;
+  display: none;
+
+  backdrop-filter: blur(4px) saturate(150%);
+  box-shadow: 0 2px 4px rgba(255, 107, 84, 0.15);
+}
+
+#now-label .emoji {
+  font-size: 12px;
+  margin-right: 4px;
+}
 /* Room color accents */
 
 body[data-room="labrador"] .calendar-section {
@@ -215,6 +302,7 @@ body[data-room="poodle"] .calendar-section {
 .calendar-body {
   display: grid;
   grid-template-columns: 80px repeat(7, 1fr);
+  position: relative;              /* 👈 key line */
 }
 
 .time-column,
@@ -292,6 +380,12 @@ body[data-room="poodle"] .calendar-section {
 
 .booking-tag.external .booking-meta {
   color: #fee2e2;
+}
+
+.booking-tag.ghost {
+  opacity: 0.4;
+  border-style: dashed;
+  pointer-events: none;
 }
 
 .booking-title {

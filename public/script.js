@@ -45,6 +45,7 @@ let weekStartDate = null; // Date object
 let weekDates = [];       // ["YYYY-MM-DD", ...]
 let bookings = [];
 let editingBookingId = null;
+let draggingBookingId = null;
 
 // DOM elements
 const datePicker = document.getElementById("datePicker");
@@ -101,7 +102,7 @@ function attachEvents() {
 
   deleteBtn.addEventListener("click", async () => {
     if (!editingBookingId) return;
-    const b = bookings.find((bk) => String(bk.id) === String(editingBookingId));
+    const b = bookings.find((bk) => bk.id === editingBookingId);
     const label = b ? `"${b.jobName}"` : "this booking";
     if (!confirm(`Release booking ${label}?`)) return;
     await deleteBooking(editingBookingId);
@@ -114,7 +115,6 @@ function attachEvents() {
 // --- Rooms loading & tabs ---
 
 async function loadRooms() {
-  // keep existing rooms fetch (assumes your API provides rooms)
   const res = await fetch(`${API_BASE}/api/rooms`);
   rooms = await res.json();
   if (rooms.length > 0) {
@@ -246,9 +246,11 @@ async function refreshBookings() {
 
 function renderCalendar() {
   calendarGrid.innerHTML = "";
-  if (!weekDates.length || selectedRoomId === null || selectedRoomId === undefined) return;
+  if (!weekDates.length || !selectedRoomId) return;
 
-  // Header row
+  const todayISO = toISODate(new Date());
+
+  // ----- Header row -----
   const header = document.createElement("div");
   header.className = "calendar-grid-header";
 
@@ -260,6 +262,11 @@ function renderCalendar() {
   weekDates.forEach((dateStr) => {
     const cell = document.createElement("div");
     cell.className = "calendar-header-cell";
+
+    // highlight today's header cell
+    if (dateStr === todayISO) {
+      cell.classList.add("today");
+    }
 
     const d = new Date(dateStr + "T00:00:00");
     const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
@@ -281,7 +288,7 @@ function renderCalendar() {
 
   calendarGrid.appendChild(header);
 
-  // Body
+  // ----- Body -----
   const body = document.createElement("div");
   body.className = "calendar-body";
 
@@ -310,13 +317,55 @@ function renderCalendar() {
     dayCol.className = "day-column";
     dayCol.dataset.date = dateStr;
 
+    // highlight today column
+    if (dateStr === todayISO) {
+      dayCol.classList.add("today");
+    }
+
     // Make entire day column a drop target
-    dayCol.addEventListener("dragover", (e) => e.preventDefault());
+    dayCol.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      showDragGhost(e, dateStr, dayCol);
+    });
     dayCol.addEventListener("drop", (e) => handleDropOnDay(e, dateStr));
+
+      // Click to create new booking at that time
+  dayCol.addEventListener("click", (e) => {
+    // Ignore clicks on existing bookings
+    if (e.target.closest(".booking-tag")) return;
+
+    const rect = dayCol.getBoundingClientRect();
+    let offsetY = e.clientY - rect.top;
+    if (offsetY < 0) offsetY = 0;
+
+    const dayStartMin = START_HOUR * 60;
+    const dayEndMin = END_HOUR * 60;
+    const totalSlots = (dayEndMin - dayStartMin) / SLOT_MINUTES;
+    const maxY = totalSlots * SLOT_HEIGHT_PX;
+    if (offsetY > maxY) offsetY = maxY;
+
+    // Snap to 30-minute slot (00–30 or 30–00)
+    const rowIndex = Math.floor(offsetY / SLOT_HEIGHT_PX); // 0,1,2,...
+    let startMin = dayStartMin + rowIndex * SLOT_MINUTES;
+
+    const DEFAULT_DURATION = 60; // minutes
+    let endMin = startMin + DEFAULT_DURATION;
+    if (endMin > dayEndMin) endMin = dayEndMin;
+
+    const startTime = minutesToTime(startMin);
+    const endTime = minutesToTime(endMin);
+
+    openModalForNewBooking({
+      roomId: selectedRoomId,
+      date: dateStr,
+      startTime,
+      endTime
+    });
+  });
 
     // bookings for this day + room
     const dayBookings = bookings.filter(
-      (b) => Number(b.roomId) === Number(selectedRoomId) && b.date === dateStr
+      (b) => b.roomId === selectedRoomId && b.date === dateStr
     );
 
     dayBookings.forEach((b) => {
@@ -334,8 +383,8 @@ function renderCalendar() {
       else tag.classList.add("external");
 
       // Position + height
-      tag.style.top = `${topPx + 1}px`;          // tiny offset from grid line
-      tag.style.height = `${heightPx - 1}px`;    // almost full slot height
+      tag.style.top = `${topPx + 1}px`;      // tiny offset from grid line
+      tag.style.height = `${heightPx - 1}px`; // almost full slot height
 
       // Compact mode: 30-min meetings => job name only
       if (durationMin <= 30) {
@@ -345,15 +394,21 @@ function renderCalendar() {
       tag.title = "Click to view / edit";
       tag.draggable = true;
 
-      // drag-to-move (store string id)
+      // drag-to-move
       tag.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", `move:${String(b.id)}`);
+        draggingBookingId = b.id;
+        e.dataTransfer.setData("text/plain", `move:${b.id}`);
+      });
+      tag.addEventListener("dragend", () => {
+        draggingBookingId = null;
+        clearDragGhosts();
       });
 
       // click-to-edit
-      tag.addEventListener("click", () => {
-        openModalForEdit(b);
-      });
+      tag.addEventListener("click", (event) => {
+  event.stopPropagation(); // don't trigger dayCol click
+  openModalForEdit(b);
+});
 
       // Title: always job name
       const title = document.createElement("div");
@@ -413,50 +468,73 @@ function renderCalendar() {
 
     body.appendChild(dayCol);
   });
+  // insert current time indicator (positioned absolutely)
+const nowLine = document.createElement("div");
+nowLine.id = "now-line";
+body.appendChild(nowLine);
+
+// insert current time indicator label
+const nowLabel = document.createElement("div");
+nowLabel.id = "now-label";
+body.appendChild(nowLabel);
 
   calendarGrid.appendChild(body);
+  positionNowLine();
 }
-
-// --- Drag to move (keep duration, snap to 30 min) ---
+setInterval(positionNowLine, 60000); // update every minute
+// --- Drag to move (keep duration, snap to 15 min increments) ---
 
 async function handleDropOnDay(e, newDate) {
+  clearDragGhosts();
   e.preventDefault();
   const raw = e.dataTransfer.getData("text/plain");
   if (!raw || !raw.startsWith("move:")) return;
 
-  const id = raw.slice(5); // keep as string (Firestore doc id)
-  const booking = bookings.find((b) => String(b.id) === String(id));
+  const id = Number(raw.slice(5));
+  const booking = bookings.find((b) => b.id === id);
   if (!booking) return;
 
   const dayStartMin = START_HOUR * 60;
   const dayEndMin = END_HOUR * 60;
-  const slots = (dayEndMin - dayStartMin) / SLOT_MINUTES;
 
   const rect = e.currentTarget.getBoundingClientRect();
   let offsetY = e.clientY - rect.top;
   if (offsetY < 0) offsetY = 0;
-  const maxY = slots * SLOT_HEIGHT_PX;
+
+  // Each visual row is 30 minutes -> SLOT_HEIGHT_PX tall
+  // We want 15-minute steps -> half-row increments
+  const stepMinutes = 15;
+  const stepHeightPx = SLOT_HEIGHT_PX * (stepMinutes / SLOT_MINUTES);
+  const totalSteps = (dayEndMin - dayStartMin) / stepMinutes;
+  const maxY = totalSteps * stepHeightPx;
+
   if (offsetY > maxY) offsetY = maxY;
 
-  // rowFraction: how many 30-min rows down we are (e.g. 0.5 = halfway)
-  const rowFraction = offsetY / SLOT_HEIGHT_PX;
+  // Snap to nearest 15-minute step
+  let stepIndex = Math.round(offsetY / stepHeightPx);
+  const maxStepIndex = totalSteps - 1;
+  if (stepIndex > maxStepIndex) stepIndex = maxStepIndex;
 
-  // each 30-min row = 2 * 15-min steps
-  let quarterSteps = Math.round(rowFraction * 2); // 0,1,2,...
-
-  // clamp so there's at least 15 minutes left in the day
-  const totalQuarterSteps = (dayEndMin - dayStartMin) / 15; // e.g. 900/15 = 60
-  const maxQuarterSteps = totalQuarterSteps - 1;
-  if (quarterSteps > maxQuarterSteps) quarterSteps = maxQuarterSteps;
-
-  const newStartMin = dayStartMin + quarterSteps * 15;
+  let newStartMin = dayStartMin + stepIndex * stepMinutes;
 
   const oldStartMin = timeToMinutes(booking.startTime);
   const oldEndMin = timeToMinutes(booking.endTime);
   const duration = oldEndMin - oldStartMin;
 
+  // Keep the same duration; adjust within day bounds if needed
   let newEndMin = newStartMin + duration;
-  if (newEndMin > dayEndMin) newEndMin = dayEndMin;
+
+  if (newEndMin > dayEndMin) {
+    // shift up so the meeting ends exactly at dayEndMin
+    newEndMin = dayEndMin;
+    newStartMin = newEndMin - duration;
+
+    if (newStartMin < dayStartMin) {
+      // if duration is longer than the day, clamp to day start/end
+      newStartMin = dayStartMin;
+      newEndMin = Math.min(dayStartMin + duration, dayEndMin);
+    }
+  }
 
   const newStartTime = minutesToTime(newStartMin);
   const newEndTime = minutesToTime(newEndMin);
@@ -480,25 +558,62 @@ async function handleDropOnDay(e, newDate) {
   }
 }
 
-// --- Firestore helpers ---
+function positionNowLine() {
+  const line = document.getElementById("now-line");
+  const label = document.getElementById("now-label");
+  if (!line || !label || !weekDates.length) return;
+
+  const todayISO = toISODate(new Date());
+  if (!weekDates.includes(todayISO)) {
+    line.style.display = "none";
+    label.style.display = "none";
+    return;
+  }
+
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const timeText = now.toTimeString().slice(0, 5); // "HH:MM"
+
+  const dayStartMin = START_HOUR * 60;
+  const dayEndMin = END_HOUR * 60;
+
+  if (minutes < dayStartMin || minutes > dayEndMin) {
+    line.style.display = "none";
+    label.style.display = "none";
+    return;
+  }
+
+  const offsetMin = minutes - dayStartMin;
+  const topPx = (offsetMin / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+
+  // move line
+  line.style.top = `${topPx}px`;
+  line.style.display = "block";
+
+  // move + show label (WITH HTML)
+  label.innerHTML = `<span class="emoji">🐾</span> ${timeText}`;
+  label.style.top = `${topPx}px`;
+  label.style.display = "block";
+}
+
+// --- API helpers ---
 
 async function updateBooking(id, fields) {
-  // id is Firestore doc id (string)
-  const existing = bookings.find((b) => String(b.id) === String(id));
+  const existing = bookings.find((b) => b.id === id);
   if (!existing) throw new Error("Booking not found");
 
-  const payload = {
-    roomId: fields.roomId !== undefined ? fields.roomId : existing.roomId,
-    date: fields.date || existing.date,
-    meetingType: fields.meetingType || existing.meetingType,
-    jobName: fields.jobName || existing.jobName,
-    booker:
-      fields.booker !== undefined ? fields.booker : (existing.booker || ""),
-    peopleCount:
-      fields.peopleCount !== undefined ? fields.peopleCount : existing.peopleCount,
-    startTime: fields.startTime || existing.startTime,
-    endTime: fields.endTime || existing.endTime
-  };
+const payload = {
+  roomId: fields.roomId !== undefined ? fields.roomId : existing.roomId,
+  date: fields.date || existing.date,
+  meetingType: fields.meetingType || existing.meetingType,
+  jobName: fields.jobName || existing.jobName,
+  booker:
+    fields.booker !== undefined ? fields.booker : (existing.booker || ""),
+  peopleCount:
+    fields.peopleCount !== undefined ? fields.peopleCount : existing.peopleCount,
+  startTime: fields.startTime || existing.startTime,
+  endTime: fields.endTime || existing.endTime
+};
 
   const bookingRef = doc(db, "bookings", String(id));
   await updateDoc(bookingRef, payload);
@@ -513,43 +628,56 @@ async function deleteBooking(id) {
 
 // --- Modal & form ---
 
-function openModalForNewBooking() {
+function openModalForNewBooking(preset = {}) {
   editingBookingId = null;
   modalTitle.textContent = "New Booking";
   deleteBtn.classList.add("hidden");
   formError.textContent = "";
   bookingForm.reset();
 
-  if (weekDates.length) {
-    bookingDateInput.value = weekDates[0];
-  } else if (datePicker.value) {
-    bookingDateInput.value = datePicker.value;
+  // Date
+  const dateValue =
+    preset.date ||
+    (weekDates.length ? weekDates[0] : datePicker.value || "");
+
+  if (dateValue) {
+    bookingDateInput.value = dateValue;
   }
 
-  if (selectedRoomId) {
-    roomSelect.value = String(selectedRoomId);
+  // Room
+  const roomValue = preset.roomId || selectedRoomId;
+  if (roomValue != null) {
+    roomSelect.value = String(roomValue);
+  }
+
+  // Time presets
+  if (preset.startTime) {
+    startTimeInput.value = preset.startTime;
+  }
+  if (preset.endTime) {
+    endTimeInput.value = preset.endTime;
   }
 
   bookingModal.classList.remove("hidden");
 }
 
 function openModalForEdit(booking) {
-  editingBookingId = String(booking.id);
+  editingBookingId = booking.id;
   modalTitle.textContent = "Edit Booking";
   deleteBtn.classList.remove("hidden");
   formError.textContent = "";
 
-  roomSelect.value = String(booking.roomId);
-  meetingTypeSelect.value = booking.meetingType;
-  peopleCountInput.value =
-    booking.peopleCount && String(booking.peopleCount).trim() !== ""
-      ? String(booking.peopleCount)
-      : "";
-  jobNameInput.value = booking.jobName;
-  bookingDateInput.value = booking.date;
-  startTimeInput.value = booking.startTime;
-  endTimeInput.value = booking.endTime;
-  bookerInput.value = booking.booker || "";
+roomSelect.value = String(booking.roomId);
+meetingTypeSelect.value = booking.meetingType;
+peopleCountInput.value =
+  booking.peopleCount && String(booking.peopleCount).trim() !== ""
+    ? String(booking.peopleCount)
+    : "";
+jobNameInput.value = booking.jobName;
+bookingDateInput.value = booking.date;
+startTimeInput.value = booking.startTime;
+endTimeInput.value = booking.endTime;
+bookerInput.value = booking.booker || "";
 
   bookingModal.classList.remove("hidden");
 }
@@ -564,16 +692,16 @@ async function handleFormSubmit(e) {
 
   const formData = new FormData(bookingForm);
 
-  const payload = {
-    roomId: Number(formData.get("roomId")),
-    date: formData.get("date"),
-    meetingType: formData.get("meetingType"),
-    jobName: formData.get("jobName").trim(),
-    booker: (formData.get("booker") || "").trim(),
-    peopleCount: formData.get("peopleCount") || "",
-    startTime: formData.get("startTime"),
-    endTime: formData.get("endTime")
-  };
+const payload = {
+  roomId: Number(formData.get("roomId")),
+  date: formData.get("date"),
+  meetingType: formData.get("meetingType"),
+  jobName: formData.get("jobName").trim(),
+  booker: (formData.get("booker") || "").trim(),
+  peopleCount: formData.get("peopleCount") || "",
+  startTime: formData.get("startTime"),
+  endTime: formData.get("endTime")
+};
 
   if (!payload.date) {
     formError.textContent = "Please choose a date.";
@@ -581,15 +709,15 @@ async function handleFormSubmit(e) {
   }
 
   // 24h HH:MM validation with 15-minute steps
-  const timePattern = /^([01]\d|2[0-3]):(00|15|30|45)$/;
-  if (
-    !timePattern.test(payload.startTime) ||
-    !timePattern.test(payload.endTime)
-  ) {
-    formError.textContent =
-      "Time must be HH:MM in 15-min steps (00, 15, 30, 45).";
-    return;
-  }
+const timePattern = /^([01]\d|2[0-3]):(00|15|30|45)$/;
+if (
+  !timePattern.test(payload.startTime) ||
+  !timePattern.test(payload.endTime)
+) {
+  formError.textContent =
+    "Time must be HH:MM in 15-min steps (00, 15, 30, 45).";
+  return;
+}
 
   const startMin = timeToMinutes(payload.startTime);
   const endMin = timeToMinutes(payload.endTime);
@@ -645,4 +773,62 @@ function formatFullDate(d) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
+}
+function clearDragGhosts() {
+  const ghosts = document.querySelectorAll(".booking-tag.ghost");
+  ghosts.forEach((el) => el.remove());
+}
+
+function showDragGhost(e, dateStr, dayCol) {
+  if (!draggingBookingId) return;
+  const booking = bookings.find((b) => b.id === draggingBookingId);
+  if (!booking) return;
+
+  const dayStartMin = START_HOUR * 60;
+  const dayEndMin = END_HOUR * 60;
+
+  const rect = dayCol.getBoundingClientRect();
+  let offsetY = e.clientY - rect.top;
+  if (offsetY < 0) offsetY = 0;
+
+  const stepMinutes = 15;
+  const stepHeightPx = SLOT_HEIGHT_PX * (stepMinutes / SLOT_MINUTES);
+  const totalSteps = (dayEndMin - dayStartMin) / stepMinutes;
+  const maxY = totalSteps * stepHeightPx;
+  if (offsetY > maxY) offsetY = maxY;
+
+  let stepIndex = Math.round(offsetY / stepHeightPx);
+  const maxStepIndex = totalSteps - 1;
+  if (stepIndex > maxStepIndex) stepIndex = maxStepIndex;
+
+  let newStartMin = dayStartMin + stepIndex * stepMinutes;
+
+  const oldStartMin = timeToMinutes(booking.startTime);
+  const oldEndMin = timeToMinutes(booking.endTime);
+  const duration = oldEndMin - oldStartMin;
+
+  let newEndMin = newStartMin + duration;
+
+  if (newEndMin > dayEndMin) {
+    newEndMin = dayEndMin;
+    newStartMin = newEndMin - duration;
+    if (newStartMin < dayStartMin) {
+      newStartMin = dayStartMin;
+      newEndMin = Math.min(dayStartMin + duration, dayEndMin);
+    }
+  }
+
+  const offsetMin = newStartMin - dayStartMin;
+  const topPx = (offsetMin / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+  const heightPx = (duration / SLOT_MINUTES) * SLOT_HEIGHT_PX;
+
+  clearDragGhosts();
+
+  let ghost = document.createElement("div");
+  ghost.className = "booking-tag ghost";
+  ghost.style.top = `${topPx + 1}px`;
+  ghost.style.height = `${heightPx - 1}px`;
+  ghost.textContent = booking.jobName || "New time";
+
+  dayCol.appendChild(ghost);
 }
