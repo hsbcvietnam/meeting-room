@@ -19,7 +19,10 @@ const ROOMS = [
   { id: 2, name: "Border Collie", hasTv: true },
   { id: 3, name: "Rottweiler", hasTv: true },
   { id: 4, name: "Shiba", hasTv: false },
-  { id: 5, name: "Poodle", hasTv: false }
+  { id: 5, name: "Poodle", hasTv: false },
+  { id: 6, name: "First Light", hasTv: false },
+  { id: 7, name: "Halfway", hasTv: true },
+  { id: 8, name: "Deep End", hasTv: false },
 ];
 
 // --- Helpers to load/save bookings ---
