@@ -139,33 +139,82 @@ function renderRoomOptions() {
   });
 }
 
+// function renderRoomTabs() {
+//   roomTabsContainer.innerHTML = "";
+//   rooms.forEach((room) => {
+//     const btn = document.createElement("button");
+//     btn.type = "button";
+//     btn.className = "room-tab";
+//     if (room.id === selectedRoomId) btn.classList.add("active");
+
+//     const emojiSpan = document.createElement("span");
+//     emojiSpan.className = "emoji";
+//     emojiSpan.textContent = ROOM_EMOJIS[room.name] || "🐶";
+
+//     const textSpan = document.createElement("span");
+//     textSpan.textContent = room.name;
+
+//     btn.appendChild(emojiSpan);
+//     btn.appendChild(textSpan);
+
+//     btn.addEventListener("click", () => {
+//       selectedRoomId = room.id;
+//       setBodyRoomClass(room.name);
+//       renderRoomTabs();
+//       renderCalendar();
+//     });
+
+//     roomTabsContainer.appendChild(btn);
+//   });
+// }
+
 function renderRoomTabs() {
   roomTabsContainer.innerHTML = "";
-  rooms.forEach((room) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "room-tab";
-    if (room.id === selectedRoomId) btn.classList.add("active");
 
-    const emojiSpan = document.createElement("span");
-    emojiSpan.className = "emoji";
-    emojiSpan.textContent = ROOM_EMOJIS[room.name] || "🐶";
+  const firstRowRooms = rooms.slice(0, 5);
+  const secondRowRooms = rooms.slice(5);
 
-    const textSpan = document.createElement("span");
-    textSpan.textContent = room.name;
+  function createRow(labelText, roomList) {
+    const row = document.createElement("div");
+    row.className = "room-row";
 
-    btn.appendChild(emojiSpan);
-    btn.appendChild(textSpan);
+    const label = document.createElement("span");
+    label.className = "room-label";
+    label.textContent = labelText;
 
-    btn.addEventListener("click", () => {
-      selectedRoomId = room.id;
-      setBodyRoomClass(room.name);
-      renderRoomTabs();
-      renderCalendar();
+    row.appendChild(label);
+
+    roomList.forEach((room) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "room-tab";
+      if (room.id === selectedRoomId) btn.classList.add("active");
+
+      const emojiSpan = document.createElement("span");
+      emojiSpan.className = "emoji";
+      emojiSpan.textContent = ROOM_EMOJIS[room.name] || "🐶";
+
+      const textSpan = document.createElement("span");
+      textSpan.textContent = room.name;
+
+      btn.appendChild(emojiSpan);
+      btn.appendChild(textSpan);
+
+      btn.addEventListener("click", () => {
+        selectedRoomId = room.id;
+        setBodyRoomClass(room.name);
+        renderRoomTabs();
+        renderCalendar();
+      });
+
+      row.appendChild(btn);
     });
 
-    roomTabsContainer.appendChild(btn);
-  });
+    return row;
+  }
+
+  roomTabsContainer.appendChild(createRow("386:", firstRowRooms));
+  roomTabsContainer.appendChild(createRow("1224:", secondRowRooms));
 }
 
 function setBodyRoomClass(roomName) {

@@ -561,3 +561,15 @@ body[data-room="poodle"] .calendar-section {
   padding: 6px 10px;    /* compact */
   font-size: 14px;      /* visually balanced */
 }
+
+.room-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.room-label {
+  font-weight: bold;
+  margin-right: 8px;
+}
