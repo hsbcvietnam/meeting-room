@@ -213,8 +213,8 @@ function renderRoomTabs() {
     return row;
   }
 
-  roomTabsContainer.appendChild(createRow("386:", firstRowRooms));
-  roomTabsContainer.appendChild(createRow("1224:", secondRowRooms));
+  roomTabsContainer.appendChild(createRow("386-House", firstRowRooms));
+  roomTabsContainer.appendChild(createRow("1224-Studio", secondRowRooms));
 }
 
 function setBodyRoomClass(roomName) {
