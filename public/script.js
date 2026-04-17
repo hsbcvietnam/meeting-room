@@ -78,7 +78,10 @@ const ROOM_EMOJIS = {
   "Border Collie": "🐕‍🦺",
   "Rottweiler": "🐕",
   "Shiba": "🦊",
-  "Poodle": "🐩"
+  "Poodle": "🐩",
+  "First Light": "✨",
+  "Halfway": "🎢",
+  "Deep End": "🌌",
 };
 
 // --- Init ---
